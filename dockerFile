@@ -1,0 +1,42 @@
+# Base image
+FROM php:8.1.6-apache
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    zip \
+    unzip \
+    libicu-dev \
+    libzip-dev \
+    && docker-php-ext-install \
+    pdo_mysql \
+    intl \
+    zip
+
+# Copy the codebase into the container
+COPY . .
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install dependencies with Composer
+RUN composer install --no-scripts --no-autoloader
+
+# Copy the Symfony environment configuration file
+COPY .env .
+
+# Generate autoload files and clear cache
+RUN composer dump-autoload --no-scripts --no-dev --optimize \
+    && php bin/console cache:clear --no-warmup --env=prod
+
+# Set permissions on cache and logs directories
+RUN chmod -R 777 var/cache var/log
+
+# Expose the port for the Apache server
+EXPOSE 80
+
+# Start Apache server
+CMD ["apache2-foreground"]
